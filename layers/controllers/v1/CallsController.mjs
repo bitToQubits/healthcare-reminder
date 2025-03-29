@@ -1,4 +1,4 @@
-import { triggerVoiceCall } from '../services/v1/CallsService'
+import { triggerVoiceCall } from '../../services/v1/CallsService.mjs'
 
 export const makeCall = async (req, res) => {
 
@@ -15,6 +15,7 @@ export const makeCall = async (req, res) => {
                 "msg": "Please specify a valid phone number."
             }
             res.status(400).json(response);
+            return;
         }
 
         response = await triggerVoiceCall(phoneNumber);
@@ -23,7 +24,7 @@ export const makeCall = async (req, res) => {
     } catch(error) {
         response = {
             "status": false,
-            "msg": error
+            "msg": error.message
         }
         res.status(500).json(response);
     }
