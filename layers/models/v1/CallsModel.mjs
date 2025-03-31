@@ -1,5 +1,4 @@
-import mongodb from "mongodb";
-import {connectToDb} from "Database.mjs";
+import { connectToDb } from "./Database.mjs";
 
 export const insertCall = async (callInfo) => {
     let dbo = await connectToDb();

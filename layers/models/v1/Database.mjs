@@ -1,8 +1,13 @@
 import MongoClient from "mongodb";
+import dotenv from 'dotenv';
+dotenv.config();
+
+const IP_ADDRESS = process.env.IP_ADDRESS_MONGODB || 'localhost';
+const PORT = process.env.PORT_MONGODB || '27017';
 
 /* Courtesy of GeeksforGeeks */
 
-const url = 'mongodb://localhost:27017'; 
+const url = `mongodb://${IP_ADDRESS}:${PORT}`; 
 const databaseName = 'healthcare-reminder';
 
 let mongoClientInstance = null;
@@ -13,12 +18,10 @@ const connectionOption = {
     maxPoolSize: maxPoolSize
 }
 
-async function connectToDb() {
+export const connectToDb = async () => {
     if ( ! mongoClientInstance ) {
         mongoClientInstance = await MongoClient.connect(url, connectionOption);
     }
 
     return mongoClientInstance.db(databaseName);
 }
-
-module.exports = { connectToDb };

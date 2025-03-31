@@ -1,22 +1,25 @@
-import { Twilio } from "twilio";
+import Twilio from 'twilio';
 import { ElevenLabsClient } from "elevenlabs";
-import { createWriteStream } from "fs";
 import { createClient } from "@deepgram/sdk";
-import { insertCall, getAllCalls, } from '../../models/v1/CallsModel.mjs';
+import { insertCall, getAllCalls } from '../../models/v1/CallsModel.mjs';
+import dotenv from 'dotenv';
 
-const accountSidTwilio = '';
-const authTokenTwilio = '';
-const authTokenElevenLabs = '';
-const authTokenDeepgram = '';
-const relativeRouteForAudioFiles = '/assets/uploads/audio/';
-const rootPath = '';
+dotenv.config();
+
+const accountSidTwilio = process.env.ACCOUNT_SID_TWILIO;
+const authTokenTwilio = process.env.AUTH_TOKEN_TWILIO;
+const authTokenElevenLabs = process.env.AUTH_TOKEN_11LABS;
+const authTokenDeepgram = process.env.AUTH_TOKEN_DEEPGRAM;
+const SERVER_DOMAIN = process.env.SERVER_DOMAIN || 'localhost';
 const unansweredCallTextMessage = 
 `We called to check on your medication but couldn't reach you. 
 Please call us back or take your medications if you haven't done so.`;
-const phoneNumberTwilio = "";
+const phoneNumberTwilio = process.env.PHONE_NUMBER_TWILIO;
 const initialTextMessage = 
 `Hello, this is a reminder from your healthcare provider to confirm your medications for the day. 
 Please confirm if you have taken your Aspirin, Cardivol, and Metformin today.`;
+const voiceId = '21m00Tcm4TlvDq8ikWAM';
+const outputFormatElevenLabs = 'ulaw_8000';
 
 const sendSms = async (phoneNumber, text) => {
     let response = {};
@@ -27,7 +30,7 @@ const sendSms = async (phoneNumber, text) => {
         to: phoneNumber
     });
 
-    if ( message.body.sid ) {
+    if (message.body.sid) {
         response = {
             "status": true,
             "message": "SMS sent."
@@ -43,25 +46,23 @@ const sendSms = async (phoneNumber, text) => {
     return response;
 }
 
-const generateVoiceTTS = async (text, filename) => {
-    return new Promise(async (resolve) => {
-        const elevenlabs = new ElevenLabsClient({
-            apiKey: authTokenElevenLabs, 
-        });
+export const generateVoiceTTS = async (text_id) => {
+    const elevenlabs = new ElevenLabsClient(authTokenElevenLabs);
+    let text = "";
 
-        const audio = await elevenlabs.textToSpeech.convert("JBFqnCBsd6RMkjVDRZzb", {
-            text,
-            model_id: "eleven_multilingual_v2",
-            output_format: "mp3_44100_128",
-        });
-        const fileName = relativeRouteForAudioFiles+`${filename}.mp3`;
-        const fileStream = createWriteStream(fileName);
+    switch(text_id) {
+        case "1":
+            text = initialTextMessage;
+            break;
+        case "2":
+            text = unansweredCallTextMessage;
+            break;
+    }
 
-        audio.pipe(fileStream);
-        fileStream.on("finish", () => resolve(fileName));
-        fileStream.on("error", (err) => {
-            if (err) throw err;
-        });
+    return await elevenlabs.textToSpeech.convert(voiceId, {
+        model_id: 'eleven_flash_v2_5',
+        output_format: outputFormatElevenLabs,
+        text,
     });
 }
 
@@ -83,8 +84,7 @@ const transcribeVoiceSTT = async (audio_url) => {
 }
 
 export const depositVoiceMail = async (callSid, answeredBy) => {
-
-    if ( ! ["machine_end_beep", "machine_end_silence", "machine_end_other"].includes(answeredBy) ) {
+    if (!["machine_end_beep", "machine_end_silence", "machine_end_other"].includes(answeredBy)) {
         return {
             "status": true,
             "message": "Machine didn't respond."
@@ -92,12 +92,15 @@ export const depositVoiceMail = async (callSid, answeredBy) => {
     }
 
     const twilio = new Twilio(accountSidTwilio, authTokenTwilio);
-    const unansweredCallAudioUrl = await generateVoiceTTS(unansweredCallTextMessage, 'unansweredCallAudioMessage');
-    let twiml = Twilio.twiml.VoiceResponse();
+    let twiml = new Twilio.twiml.VoiceResponse();
+    const start = twiml.start();
+    start.stream({
+        name: 'unansweredCallAudioMessage',
+        url: `wss://${SERVER_DOMAIN}/api/v1/calls/audiostream/2`,
+    });
 
-    twiml.play(rootPath+'/'+unansweredCallAudioUrl);
-    twiml.hangup();
-    twiml = twiml.string();
+    response.hangup();
+    twiml = twiml.toString();
 
     const call = await twilio.calls(callSid).update(
         {
@@ -105,6 +108,12 @@ export const depositVoiceMail = async (callSid, answeredBy) => {
         }
     )
 
+    let response = {
+        "status": "Voicemail left",
+        "sid": call.sid
+    };
+
+    console.log(response);
     await insertCall(response);
 
     return {
@@ -115,15 +124,17 @@ export const depositVoiceMail = async (callSid, answeredBy) => {
 
 export const triggerVoiceCall = async (phoneNumber) => {
     let response = {};
-    const initialAudioMessageUrl = await generateVoiceTTS(initialTextMessage, 'initialAudioMessage');
     const twilio = new Twilio(accountSidTwilio, authTokenTwilio);
-    let twiml = Twilio.twiml.VoiceResponse();
+    let twiml = new Twilio.twiml.VoiceResponse();
     let transcribedPatientText = "";
-
-    twiml.play(rootPath+'/'+initialAudioMessageUrl);
+    const start = twiml.start();
+    start.stream({
+        name: 'initialAudioMessage',
+        url: `wss://${SERVER_DOMAIN}/api/v1/calls/audiostream/1`,
+    });
     twiml.record();
     twiml.hangup();
-    twiml = twiml.string();
+    twiml = twiml.toString();
 
     const call = await twilio.calls.create(
         {
@@ -131,7 +142,7 @@ export const triggerVoiceCall = async (phoneNumber) => {
             to: phoneNumber,
             twiml,
             machineDetection: "DetectMessageEnd",
-            AsyncAmdStatusCallback: rootPath + '/api/v1/sendVoiceMail'
+            AsyncAmdStatusCallback: SERVER_DOMAIN + '/api/v1/sendVoiceMail'
         }
     );
 
@@ -152,12 +163,15 @@ export const triggerVoiceCall = async (phoneNumber) => {
             const callRecordingID = callRecordings[0].sid;
             const callRecordingURL = 
             `https://api.twilio.com/2010-04-01/Accounts/${accountSidTwilio}/Recordings/${callRecordingID}.mp3`;
+            response['callRecordingURL'] = callRecordingURL;
             transcribedPatientText = await transcribeVoiceSTT(callRecordingURL);
         }
 
+        response['status'] = "answered";
+
     } else {
         if ( call.status == "no-answer") {
-            let smsInfo = await sendSms(phoneNumber, unansweredCallTextMessage);
+            const smsInfo = await sendSms(phoneNumber, unansweredCallTextMessage);
             if( smsInfo.status ){
                 response['status'] = "SMS sent";
             }
@@ -168,17 +182,21 @@ export const triggerVoiceCall = async (phoneNumber) => {
 
     await insertCall(response);
 
+    console.log(response);
     return response;
 }
 
 export const receiveVoiceCall = async () => {
-    const initialAudioMessageUrl = await generateVoiceTTS(initialTextMessage, 'initialAudioMessage');
-    let twiml = Twilio.twiml.VoiceResponse();
+    let twiml = new Twilio.twiml.VoiceResponse();
+    let start = twiml.start();
+    start.stream({
+        name: 'initialAudioMessage',
+        url: `wss://${SERVER_DOMAIN}/api/v1/calls/audiostream/1`,
+    });
 
-    twiml.play(rootPath+'/'+initialAudioMessageUrl);
     twiml.record();
     twiml.hangup();
-    return twiml.string();
+    return twiml.toString();
 }
 
 export const getAllVoiceCalls = async () => {

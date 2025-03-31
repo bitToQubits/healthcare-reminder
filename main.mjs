@@ -1,8 +1,10 @@
 import express from 'express';
 import router from './middleware/router.mjs';
+import errorHandler from './middleware/errorHandler.mjs';
 import cors from 'cors';
+import { WebSocketExpress } from 'websocket-express';
 
-const app = express();
+const app = new WebSocketExpress();
 
 app.use(cors());
 
@@ -13,6 +15,7 @@ app.use(express.json(), (err, req, res, next) => {
     next();
 });
 
+app.use(errorHandler);
 app.use('/api', router);
 
 const PORT = process.env.PORT || 5000;
