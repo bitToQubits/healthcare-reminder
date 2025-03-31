@@ -18,7 +18,7 @@ const phoneNumberTwilio = process.env.PHONE_NUMBER_TWILIO;
 const initialTextMessage = 
 `Hello, this is a reminder from your healthcare provider to confirm your medications for the day. 
 Please confirm if you have taken your Aspirin, Cardivol, and Metformin today.`;
-const voiceId = '21m00Tcm4TlvDq8ikWAM';
+const voiceId = '21m00Tcm4TlvDq8ikWAMr';
 const outputFormatElevenLabs = 'ulaw_8000';
 
 const sendSms = async (phoneNumber, text) => {
@@ -47,7 +47,15 @@ const sendSms = async (phoneNumber, text) => {
 }
 
 export const generateVoiceTTS = async (text_id) => {
-    const elevenlabs = new ElevenLabsClient(authTokenElevenLabs);
+
+    if(!authTokenElevenLabs){
+        return false;
+    }
+
+    const elevenlabs = new ElevenLabsClient({
+        apiKey: authTokenElevenLabs,
+    });
+
     let text = "";
 
     switch(text_id) {

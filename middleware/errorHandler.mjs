@@ -2,6 +2,7 @@ import { Domain } from 'async-hook-domain';
 
 const errorHandler = function (req, res, next) {
     const d = new Domain(error => {
+        console.log(error)
         if (!res.headersSent) {
             const response = {
                 "status": false,

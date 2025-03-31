@@ -6,6 +6,8 @@ import {
     generateVoiceTTS
 } from '../../services/v1/CallsService.mjs';
 import { streamToArrayBuffer } from '../../../utils/dataConversions.mjs';
+import { isJsonString } from '../../../utils/dataValidation.mjs';
+import { Readable } from 'stream';
 
 const accountSidTwilio = '';
 
@@ -80,31 +82,44 @@ export const getAllVoiceCalls = async (req, res) => {
     res.status(200).json(response);
 }
 
-export const handleAudioStream = async (req, res) => {
-    const ws = await res.accept();
+export const handleAudioStream = async (ws, req) => {
+    let id_text = parseInt(req.params.id_text);
 
-    let id_text = req.params.id_text;
-
-    if(isNaN(id_text)){
-        const response = {
-            "status": false,
-            "message": "Please specify a valid ID for the TTS software."
-        }
-        res.status(400).json(response);
-        return;
-    }
-
+    /* 
+        If request is not for unanswered call/reminder calls audio streaming, 
+        reject the connection. 
+    */
+   
     /* Courtesy of elevenlabs.io */
 
     ws.on('message', async (data) => {
-        const message = {
-            event,
-            start: { streamSid, callSid }
-          } = JSON.parse(data);
 
-          if (message.event === 'start' && message.start) {
+        if(!isJsonString(data)){
+            console.log("hola 98");
+            ws.close();
+            return;
+        }
+
+        const message = JSON.parse(data);
+
+        console.log(message);
+
+        if(!message.event || !message.start || !message.start.streamSid || !message.start.callSid) {
+            ws.close();
+            return;
+        }
+
+        if (message.event === 'start') {
+            console.log("hola 110");
             const streamSid = message.start.streamSid;
-            const response = await generateVoiceTTS(id_text)
+            const response = await generateVoiceTTS(id_text);
+
+            if( response == false) {
+                console.log('entro paca')
+                ws.close();
+                return;
+            }
+
             const readableStream = Readable.from(response);
             const audioArrayBuffer = await streamToArrayBuffer(readableStream);
             ws.send(
@@ -119,7 +134,7 @@ export const handleAudioStream = async (req, res) => {
         }
     });
 
-    ws.on('error', (err) => {
-        if (err) throw err;
+    ws.on('error', () => {
+        ws.close();
     });
 }
