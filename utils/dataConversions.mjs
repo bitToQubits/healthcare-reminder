@@ -9,7 +9,14 @@ export const streamToArrayBuffer = async (readableStream) => {
             resolve(Buffer.concat(chunks).buffer);
         });
         readableStream.on('error', (err) => {
-            if(err) throw err;
+            if(err) {
+                err.isOperational = true;
+                throw err;
+            } 
         });
     });
+}
+
+export const getDomainName = (url_string) => {
+    return url_string.replace("https://", "");
 }

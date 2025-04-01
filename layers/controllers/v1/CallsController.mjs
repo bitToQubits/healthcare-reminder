@@ -1,6 +1,6 @@
 import { 
     triggerVoiceCall, 
-    depositVoiceMail, 
+    leaveVoiceMail, 
     receiveVoiceCall, 
     getAllVoiceCalls as getVoiceCalls,
     generateVoiceTTS
@@ -18,7 +18,7 @@ const accountSidTwilio = '';
     streaming of elevenlabs, 
     readme, 
     unit testing, 
-    documentation,
+    documentatio in the functions,
     check for requirements
 */
 
@@ -59,12 +59,12 @@ export const sendVoiceMail = async (req, res) => {
         return;
     }
 
-    response = await depositVoiceMail(CallSid, AnsweredBy);
+    response = await leaveVoiceMail(CallSid, AnsweredBy);
     res.status(201).json(response);
 }
 
 export const receiveCall = async (req, res) => {
-    let voiceCallResponse  = await receiveVoiceCall();
+    const voiceCallResponse  = await receiveVoiceCall();
 
     res.header("Content-Type", "application/xml");
     res.status(200).send(voiceCallResponse);
@@ -87,51 +87,58 @@ export const handleAudioStream = async (ws, req) => {
 
     /* 
         If request is not for unanswered call/reminder calls audio streaming, 
-        reject the connection. 
+        close the connection. 
     */
-   
-    /* Courtesy of elevenlabs.io */
+
+    if(![1,2].includes(id_text)){
+        ws.close();
+        return;
+    }
 
     ws.on('message', async (data) => {
-
         if(!isJsonString(data)){
-            console.log("hola 98");
-            ws.close();
             return;
         }
 
         const message = JSON.parse(data);
+        let stopMessageSending = false;
+        let response = "";
 
-        console.log(message);
-
-        if(!message.event || !message.start || !message.start.streamSid || !message.start.callSid) {
-            ws.close();
+        if(
+            !message.event || 
+            !message.start || 
+            !message.start.streamSid || 
+            !message.start.callSid
+        ){
             return;
         }
 
-        if (message.event === 'start') {
-            console.log("hola 110");
-            const streamSid = message.start.streamSid;
-            const response = await generateVoiceTTS(id_text);
-
-            if( response == false) {
-                console.log('entro paca')
-                ws.close();
-                return;
-            }
-
-            const readableStream = Readable.from(response);
-            const audioArrayBuffer = await streamToArrayBuffer(readableStream);
-            ws.send(
-              JSON.stringify({
-                streamSid,
-                event: 'media',
-                media: {
-                  payload: Buffer.from(audioArrayBuffer).toString('base64'),
-                },
-              })
-            );
+        if(message.event != 'start'){
+            return;
         }
+
+        const streamSid = message.start.streamSid;
+
+        await generateVoiceTTS(id_text)
+        .then((data) => {response = data})
+        .catch((err) => {stopMessageSending = true});
+
+        if(stopMessageSending) {
+            return;
+        }
+
+        const readableStream = Readable.from(response);
+        const audioArrayBuffer = await streamToArrayBuffer(readableStream);
+
+        ws.send(
+            JSON.stringify({
+            streamSid,
+            event: 'media',
+            media: {
+                payload: Buffer.from(audioArrayBuffer).toString('base64'),
+            },
+            })
+        );
     });
 
     ws.on('error', () => {

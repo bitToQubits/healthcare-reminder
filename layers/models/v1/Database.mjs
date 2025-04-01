@@ -1,13 +1,9 @@
 import MongoClient from "mongodb";
-import dotenv from 'dotenv';
-dotenv.config();
-
-const IP_ADDRESS = process.env.IP_ADDRESS_MONGODB || 'localhost';
-const PORT = process.env.PORT_MONGODB || '27017';
+import constants from '../../../utils/constants.mjs';
 
 /* Courtesy of GeeksforGeeks */
 
-const url = `mongodb://${IP_ADDRESS}:${PORT}`; 
+const url = `mongodb://${constants.DB_IP_ADDRESS}:${constants.DB_PORT}`; 
 const databaseName = 'healthcare-reminder';
 
 let mongoClientInstance = null;
