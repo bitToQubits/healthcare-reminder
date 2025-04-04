@@ -8,6 +8,7 @@ import {
 } from '../../services/v1/CallsService.mjs';
 import { streamToArrayBuffer } from '../../../utils/dataConversions.mjs';
 import { isJsonString } from '../../../utils/dataValidation.mjs';
+import { wait } from '../../../utils/miscellaneous.mjs';
 import { Readable } from 'stream';
 import constants from '../../../utils/constants.mjs';
 
@@ -77,6 +78,7 @@ export const handleStatusChange = async (req, res) => {
         return;
     }
 
+    await wait(2000);
     response = await changeStatusVoiceCall(callInfo);
     res.status(201).json(response);
 }
@@ -122,17 +124,21 @@ export const handleAudioStream = async (ws, req) => {
         let stopMessageSending = false;
         let response = "";
         
-        if(
-            !message.event || 
-            !message.start || 
-            !message.start.streamSid || 
-            !message.start.callSid
-        ){
+        if(!message.event){
             return;
         }
         
-        if(message.event != 'start'){
+        console.log(message);
+        if(!["mark", "start"].includes(message.event)){
             return;
+        }
+
+
+        if( message.event == "mark" ){
+            if( message.mark.name == "stoppedPlaying" ) {
+                ws.close();
+                return;
+            }
         }
         
         const streamSid = message.start.streamSid;
@@ -151,9 +157,18 @@ export const handleAudioStream = async (ws, req) => {
         ws.send(
             JSON.stringify({
                 streamSid,
-                event: 'media',
-                media: {
+                "event": 'media',
+                "media": {
                     payload: Buffer.from(audioArrayBuffer).toString('base64'),
+                },
+            })
+        );
+        ws.send(
+            JSON.stringify({
+                streamSid,
+                "event": 'mark',
+                "mark": {
+                    "name": "stoppedPlaying",
                 },
             })
         );

@@ -11,8 +11,7 @@ export default Object.freeze({
     `Hello, this is a reminder from your healthcare provider to confirm your medications for the day. 
     Please confirm if you have taken your Aspirin, Cardivol, and Metformin today`,
     UNANSWERED_CALL_TEXT_MESSAGE: 
-    `We called to check on your medication but couldn't reach you. 
-    Please call us back or take your medications if you haven't done so.`,
+    `We called to check on your medication but couldn't reach you. Please call us back or take your medications if you haven't done so.`,
     PHONE_NUMBER_TWILIO: process.env.PHONE_NUMBER_TWILIO,
     VOICE_ID_11LABS: '21m00Tcm4TlvDq8ikWAM',
     OUTPUT_FORMAT_11LABS: 'ulaw_8000',
