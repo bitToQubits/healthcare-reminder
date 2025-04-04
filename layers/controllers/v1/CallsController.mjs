@@ -3,23 +3,25 @@ import {
     leaveVoiceMail, 
     receiveVoiceCall, 
     getAllVoiceCalls as getVoiceCalls,
-    generateVoiceTTS
+    generateVoiceTTS,
+    changeStatusVoiceCall
 } from '../../services/v1/CallsService.mjs';
 import { streamToArrayBuffer } from '../../../utils/dataConversions.mjs';
 import { isJsonString } from '../../../utils/dataValidation.mjs';
 import { Readable } from 'stream';
-
-const accountSidTwilio = '';
+import constants from '../../../utils/constants.mjs';
 
 /* 
     TO-DO: 
+    webhook en twilio, que las llamadas se actualizen sola cuando ya este en queue. Que twilio llame a nuestra api.
     manage better the asyncronous and syncronous calls, 
     error handling, 
     streaming of elevenlabs, 
     readme, 
     unit testing, 
     documentatio in the functions,
-    check for requirements
+    check for requirements,
+    check the status for the calls, manage that edge cases.
 */
 
 export const makeCall = async (req, res) => {
@@ -48,9 +50,7 @@ export const sendVoiceMail = async (req, res) => {
     let { CallSid, AccountSid, AnsweredBy } = req.body;
     let response = {};
 
-    if ( 
-        AccountSid != accountSidTwilio
-    ) {
+    if (AccountSid != constants.ACCOUNT_SID_TWILIO) {
         response = {
             "status": false,
             "message": "Must provide a valid account SID for this service."
@@ -60,6 +60,24 @@ export const sendVoiceMail = async (req, res) => {
     }
 
     response = await leaveVoiceMail(CallSid, AnsweredBy);
+    res.status(201).json(response);
+}
+
+export const handleStatusChange = async (req, res) => {
+    const callInfo = req.body;
+    const accountSid = req.body.AccountSid;
+    let response = {};
+
+    if (accountSid != constants.ACCOUNT_SID_TWILIO) {
+        response = {
+            "status": false,
+            "message": "Must provide a valid account SID for this service."
+        }
+        res.status(400).json(response);
+        return;
+    }
+
+    response = await changeStatusVoiceCall(callInfo);
     res.status(201).json(response);
 }
 
@@ -103,7 +121,7 @@ export const handleAudioStream = async (ws, req) => {
         const message = JSON.parse(data);
         let stopMessageSending = false;
         let response = "";
-
+        
         if(
             !message.event || 
             !message.start || 
@@ -112,31 +130,31 @@ export const handleAudioStream = async (ws, req) => {
         ){
             return;
         }
-
+        
         if(message.event != 'start'){
             return;
         }
-
+        
         const streamSid = message.start.streamSid;
-
+        
         await generateVoiceTTS(id_text)
         .then((data) => {response = data})
         .catch((err) => {stopMessageSending = true});
-
+        
         if(stopMessageSending) {
             return;
         }
-
+        
         const readableStream = Readable.from(response);
         const audioArrayBuffer = await streamToArrayBuffer(readableStream);
 
         ws.send(
             JSON.stringify({
-            streamSid,
-            event: 'media',
-            media: {
-                payload: Buffer.from(audioArrayBuffer).toString('base64'),
-            },
+                streamSid,
+                event: 'media',
+                media: {
+                    payload: Buffer.from(audioArrayBuffer).toString('base64'),
+                },
             })
         );
     });

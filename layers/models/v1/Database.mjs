@@ -1,23 +1,27 @@
-import MongoClient from "mongodb";
+import { MongoClient, ServerApiVersion } from "mongodb";
 import constants from '../../../utils/constants.mjs';
 
-/* Courtesy of GeeksforGeeks */
-
-const url = `mongodb://${constants.DB_IP_ADDRESS}:${constants.DB_PORT}`; 
 const databaseName = 'healthcare-reminder';
 
 let mongoClientInstance = null;
 
-let maxPoolSize = 10;
-
-const connectionOption = {
-    maxPoolSize: maxPoolSize
-}
+const client = new MongoClient(constants.DB_URI, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
 
 export const connectToDb = async () => {
     if ( ! mongoClientInstance ) {
-        mongoClientInstance = await MongoClient.connect(url, connectionOption);
+        mongoClientInstance = await client.connect().catch((err) => {
+            if(err) {
+                err.isOperational = false;
+                throw err;
+            }
+        });
     }
 
-    return mongoClientInstance.db(databaseName);
+    return await mongoClientInstance.db(databaseName);
 }

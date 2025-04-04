@@ -11,7 +11,7 @@ const sendSms = async (phoneNumber, text) => {
     const message = await twilio.messages.create({
         body: text,
         from: PHONE_NUMBER_TWILIO,
-        to: phoneNumber
+        to: phoneNumber,
     })
     .then()
     .catch((err) => {
@@ -37,10 +37,9 @@ const sendSms = async (phoneNumber, text) => {
 
 export const generateVoiceTTS = async (text_id) => {
     const elevenlabs = new ElevenLabsClient({ apiKey: constants.AUTH_TOKEN_11LABS });
-
     const text = text_id == "1" ? constants.INITIAL_TEXT_MESSAGE :
-                 text_id == "2" ? constants.UNANSWERED_CALL_TEXT_MESSAGE :
-                 "";
+    text_id == "2" ? constants.UNANSWERED_CALL_TEXT_MESSAGE :
+    "";
 
     return await elevenlabs.textToSpeech.convert(constants.VOICE_ID_11LABS, {
         model_id: 'eleven_flash_v2_5',
@@ -48,7 +47,6 @@ export const generateVoiceTTS = async (text_id) => {
         text,
     });
 }
-
 
 const transcribeVoiceSTT = async (audio_url) => {
     const deepgram = createClientDeepgram(constants.AUTH_TOKEN_DEEPGRAM);
@@ -71,6 +69,7 @@ const transcribeVoiceSTT = async (audio_url) => {
 }
 
 export const leaveVoiceMail = async (callSid, answeredBy) => {
+    console.log("leaveVoiceMail", answeredBy);
     if (!["machine_end_beep", "machine_end_silence", "machine_end_other"].includes(answeredBy)) {
         return {
             "status": true,
@@ -80,12 +79,11 @@ export const leaveVoiceMail = async (callSid, answeredBy) => {
 
     const twilio = new Twilio(constants.ACCOUNT_SID_TWILIO, constants.AUTH_TOKEN_TWILIO);
     let twiml = new Twilio.twiml.VoiceResponse();
-    const start = twiml.start();
-    start.stream({
+    let connect = twiml.connect();
+    connect.stream({
         name: 'unansweredCallAudioMessage',
         url: `wss://${getDomainName(constants.SERVER_DOMAIN)}/api/v1/calls/audiostream/2`,
     });
-
     twiml.hangup();
     twiml = twiml.toString();
 
@@ -105,7 +103,6 @@ export const leaveVoiceMail = async (callSid, answeredBy) => {
         "sid": call.sid
     };
 
-    console.log(response);
     await insertCall(response);
 
     return {
@@ -118,9 +115,8 @@ export const triggerVoiceCall = async (phoneNumber) => {
     let response = {};
     const twilio = new Twilio(constants.ACCOUNT_SID_TWILIO, constants.AUTH_TOKEN_TWILIO);
     let twiml = new Twilio.twiml.VoiceResponse();
-    let transcribedPatientText = "";
-    const start = twiml.start();
-    start.stream({
+    let connect = twiml.connect();
+    connect.stream({
         name: 'initialAudioMessage',
         url: `wss://${getDomainName(constants.SERVER_DOMAIN)}/api/v1/calls/audiostream/1`,
     });
@@ -134,7 +130,11 @@ export const triggerVoiceCall = async (phoneNumber) => {
             to: phoneNumber,
             twiml,
             machineDetection: "DetectMessageEnd",
-            AsyncAmdStatusCallback: constants.SERVER_DOMAIN + '/api/v1/sendVoiceMail'
+            // statusCallback: constants.SERVER_DOMAIN + '/api/v1/calls/status',
+            recordingStatusCallback: constants.SERVER_DOMAIN + '/api/v1/calls/status',
+            asyncAmd: true,
+            asyncAmdStatusCallback: constants.SERVER_DOMAIN + '/api/v1/calls/voiceMail',
+            asyncAmdStatusCallbackMethod: "POST"
         }
     )
     .then()
@@ -148,11 +148,25 @@ export const triggerVoiceCall = async (phoneNumber) => {
         "sid": call.sid
     };
 
-    if( call.status == "completed" ){
+    await insertCall(response);
+
+    console.log(response);
+    return response;
+}
+
+export const changeStatusVoiceCall = async (callInfo) => {
+    let transcribedPatientText = "";
+    const twilio = new Twilio(constants.ACCOUNT_SID_TWILIO, constants.AUTH_TOKEN_TWILIO);
+    let response = {
+        "status": callInfo.CallStatus,
+        "sid": callInfo.CallSid
+    }
+
+    if( callInfo.CallStatus == "completed" ){
         const callRecordings = await twilio.recordings.list(
             {
-                callSid: call.sid, 
-                limit: 1
+                callSid: callInfo.CallSid, 
+                limit: 20
             }
         )
         .then()
@@ -161,6 +175,7 @@ export const triggerVoiceCall = async (phoneNumber) => {
             throw err;
         });
 
+        console.log(callRecordings);
         if( callRecordings.length > 0 ){
             const callRecordingID = callRecordings[0].sid;
             const callRecordingURL = 
@@ -172,8 +187,8 @@ export const triggerVoiceCall = async (phoneNumber) => {
         response['status'] = "answered";
 
     } else {
-        if ( call.status == "no-answer") {
-            const smsInfo = await sendSms(phoneNumber, constants.UNANSWERED_CALL_TEXT_MESSAGE);
+        if ( callInfo.status == "no-answer") {
+            const smsInfo = await sendSms(callInfo.Called, constants.UNANSWERED_CALL_TEXT_MESSAGE);
             if( smsInfo.status ){
                 response['status'] = "SMS sent";
             }
@@ -186,12 +201,12 @@ export const triggerVoiceCall = async (phoneNumber) => {
 
     console.log(response);
     return response;
-}
+};
 
 export const receiveVoiceCall = async () => {
     let twiml = new Twilio.twiml.VoiceResponse();
-    let start = twiml.start();
-    start.stream({
+    let connect = twiml.connect();
+    connect.stream({
         name: 'initialAudioMessage',
         url: `wss://${getDomainName(constants.SERVER_DOMAIN)}/api/v1/calls/audiostream/1`,
     });
