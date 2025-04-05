@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: './.env' });
 
 export default Object.freeze({
     ACCOUNT_SID_TWILIO: process.env.ACCOUNT_SID_TWILIO,

@@ -26,11 +26,13 @@ const sendSms = async (phoneNumber, text) => {
         to: phoneNumber,
     })
     .catch((err) => {
-        err.isOperational = true;
-        throw err;
+        if(!err.message?.includes('landline')){
+            err.isOperational = true;
+            throw err;
+        }
     });
 
-    if (message.body.sid) {
+    if (message?.body?.sid) {
         response = {
             "status": true,
             "message": "SMS sent."
@@ -38,8 +40,8 @@ const sendSms = async (phoneNumber, text) => {
     } else {
         response = {
             "status": false,
-            "message": message.body.errorMessage,
-            "errorCode": message.body.errorCode,
+            "message": message?.body?.errorMessage,
+            "errorCode": message?.body?.errorCode,
         }
     }
 
@@ -53,27 +55,18 @@ const sendSms = async (phoneNumber, text) => {
  * @param  {Number} textId         The ID of the text that we want to generate    
  * @return {Promise}                Promise resolving in a buffer with the audio in the output format.
  */
-export const generateVoiceTTS = async (textId, stream = false) => {
+export const generateVoiceTTS = async (textId) => {
     const elevenlabs = new ElevenLabsClient({ apiKey: constants.AUTH_TOKEN_11LABS });
     const text = 
     textId == "1" ? constants.INITIAL_TEXT_MESSAGE :
     textId == "2" ? constants.UNANSWERED_CALL_TEXT_MESSAGE :
     "";
 
-    if(!stream){
-        return await elevenlabs.textToSpeech.convert(constants.VOICE_ID_11LABS, {
-            model_id: 'eleven_flash_v2_5',
-            output_format: constants.OUTPUT_FORMAT_11LABS,
-            text,
-        });
-    } else {
-        return await client.textToSpeech.convertAsStream(constants.VOICE_ID_11LABS, {
-            model_id: 'eleven_flash_v2_5',
-            output_format: constants.OUTPUT_FORMAT_11LABS,
-            text,
-        });
-    }
-
+    return await elevenlabs.textToSpeech.convert(constants.VOICE_ID_11LABS, {
+        model_id: 'eleven_flash_v2_5',
+        output_format: constants.OUTPUT_FORMAT_11LABS,
+        text,
+    });
 }
 
 /**
@@ -85,7 +78,7 @@ export const generateVoiceTTS = async (textId, stream = false) => {
  * @return {Object}             Status of the voice mail   
  */
 export const leaveVoiceMail = async (callSid, answeredBy) => {
-    if (!["machine_end_beep", "machine_end_silence", "machine_end_other"].includes(answeredBy)) {
+    if (!["machine_end_beep", "machine_end_silence"].includes(answeredBy)) {
         return {
             "status": true,
             "message": "Machine didn't respond."
@@ -199,7 +192,7 @@ export const changeStatusVoiceCall = async (callInfo) => {
         if( callRecordings.length > 0 ){
             const callRecordingID = callRecordings[0].sid;
             const callRecordingURL = 
-            `https://api.twilio.com/2010-04-01/Accounts/${constants.ACCOUNT_SID_TWILIO}/Recordings/${callRecordingID}.mp3`;
+            `https://api.twilio.com/2010-04-01/Accounts/${constants.ACCOUNT_SID_TWILIO}/Recordings/${callRecordingID}`;
             response['callRecordingURL'] = callRecordingURL;
         }
 
@@ -246,9 +239,16 @@ export const getAllVoiceCalls = async () => {
  return await getAllCalls();
 }
 
+/**
+ * Handle the real time voice messaging both ways.
+ * @category CallsService
+ * @author jlbciriaco[at]gmail.com
+ * @param  {Number}     textID      The ID of the text we want to generate voice for.
+ * @param  {WebSocket}  ws          Websocket connection.
+ */
 export const handleDualAudioStream = async(textID, ws) => {
     const deepgramClient = createClientDeepgram(constants.AUTH_TOKEN_DEEPGRAM);
-    let keepAlive;
+    let keepAlive = false;
     let patientTextResponse = "";
     let callSid = "";
 
@@ -256,7 +256,7 @@ export const handleDualAudioStream = async(textID, ws) => {
         const deepgram = deepgramClient.listen.live({
             language: "en",
             smart_format: true,
-            model: "nova",
+            model: "nova-3",
             encoding: "mulaw",
             sample_rate: 8000,
             channels: 1,
@@ -269,8 +269,10 @@ export const handleDualAudioStream = async(textID, ws) => {
     
         deepgram.addListener(LiveTranscriptionEvents.Open, async () => {
             deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
-                patientTextResponse += data.channel.alternatives[0].transcript;
-                console.log(patientTextResponse);
+                if(data.channel.alternatives[0].transcript.trim() != ""){
+                    console.log(data.channel.alternatives[0].transcript);
+                    patientTextResponse += " " + data.channel.alternatives[0].transcript;
+                }
             });
         
             deepgram.addListener(LiveTranscriptionEvents.Close, async () => {
@@ -300,6 +302,10 @@ export const handleDualAudioStream = async(textID, ws) => {
         
         if( message.event == "mark" ){
             if( message.mark.name == "stoppedPlaying" ) {
+                if(textID == 2) { //If voice mail is available lets leave the message and end the call.
+                    ws.close();
+                    return;
+                }
                 hearPatientResponse = true;
             }
         }
@@ -352,16 +358,22 @@ export const handleDualAudioStream = async(textID, ws) => {
     });
 
     ws.on('close', () => {
+
+        //Why status "inbound"? Because if the call is outbound, the status call back will be later updating
+        //the status call. Lets assume its inbound.
         insertCall({
             "sid": callSid,
+            "status": "inbound",
             "patientResponse": patientTextResponse 
         });
+        keepAlive = false;
         deepgramInstance.requestClose();
         deepgramInstance.removeAllListeners();
         deepgramInstance = null;
     });
 
     ws.on('error', () => {
+        keepAlive = false;
         deepgramInstance.requestClose();
         deepgramInstance.removeAllListeners();
         deepgramInstance = null;

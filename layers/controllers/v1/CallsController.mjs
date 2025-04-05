@@ -3,23 +3,16 @@ import {
     leaveVoiceMail, 
     receiveVoiceCall, 
     getAllVoiceCalls as getVoiceCalls,
-    generateVoiceTTS,
     changeStatusVoiceCall,
     handleDualAudioStream
 } from '../../services/v1/CallsService.mjs';
-import { wait } from '../../../utils/miscellaneous.mjs';
 import constants from '../../../utils/constants.mjs';
 
 /* 
     TO-DO: 
-    webhook en twilio, que las llamadas se actualizen sola cuando ya este en queue. Que twilio llame a nuestra api.
-    manage better the asyncronous and syncronous calls, 
     error handling, 
     streaming of elevenlabs, 
     readme, 
-    unit testing, 
-    check for requirements,
-    check the status for the calls, manage that edge cases.
 */
 
 /**
@@ -98,7 +91,6 @@ export const handleStatusChange = async (req, res) => {
         return;
     }
 
-    await wait(2000); //Lets give the Twilio API some time to save the recoding file for the call.
     response = await changeStatusVoiceCall(callInfo);
     res.status(201).json(response);
 }
@@ -153,5 +145,5 @@ export const handleAudioStream = async (ws, req) => {
         return;
     }
 
-    handleDualAudioStream(textID, req);
+    handleDualAudioStream(textID, ws);
 }

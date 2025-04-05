@@ -1,5 +1,5 @@
-import { MongoClient, ServerApiVersion } from "mongodb";
 import constants from '../../../utils/constants.mjs';
+import { MongoClient, ServerApiVersion } from "mongodb";
 
 const databaseName = 'healthcare-reminder';
 
@@ -14,7 +14,7 @@ const client = new MongoClient(constants.DB_URI, {
 });
 
 export const connectToDb = async () => {
-    if ( ! mongoClientInstance ) {
+    if (!mongoClientInstance) {
         mongoClientInstance = await client.connect().catch((err) => {
             if(err) {
                 err.isOperational = false;
