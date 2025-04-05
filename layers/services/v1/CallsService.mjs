@@ -78,7 +78,7 @@ export const generateVoiceTTS = async (textId) => {
  * @return {Object}             Status of the voice mail   
  */
 export const leaveVoiceMail = async (callSid, answeredBy) => {
-    if (!["machine_end_beep", "machine_end_silence"].includes(answeredBy)) {
+    if (!["machine_end_beep", "machine_end_silence", "machine_end_other"].includes(answeredBy)) {
         return {
             "status": true,
             "message": "Machine didn't respond."
@@ -144,7 +144,7 @@ export const triggerVoiceCall = async (phoneNumber) => {
             machineDetection: "DetectMessageEnd",
             statusCallback: constants.SERVER_DOMAIN + '/api/v1/calls/status',
             asyncAmd: true,
-            asyncAmdStatusCallback: constants.SERVER_DOMAIN + '/api/v1/calls/voiceMail',
+            asyncAmdStatusCallback: constants.SERVER_DOMAIN + '/api/v1/calls/voicemail',
             asyncAmdStatusCallbackMethod: "POST",
         }
     )
@@ -177,7 +177,7 @@ export const changeStatusVoiceCall = async (callInfo) => {
         "sid": callInfo.CallSid
     }
 
-    if( callInfo.CallStatus == "completed" ){
+    if(callInfo.CallStatus == "completed"){
         const callRecordings = await twilio.recordings.list(
             {
                 callSid: callInfo.CallSid, 
@@ -271,7 +271,9 @@ export const handleDualAudioStream = async(textID, ws) => {
             deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
                 if(data.channel.alternatives[0].transcript.trim() != ""){
                     console.log(data.channel.alternatives[0].transcript);
-                    patientTextResponse += " " + data.channel.alternatives[0].transcript;
+
+                    let subpartPatientReponse = data.channel.alternatives[0].transcript;
+                    patientTextResponse += " " + subpartPatientReponse;
                 }
             });
         
@@ -358,12 +360,8 @@ export const handleDualAudioStream = async(textID, ws) => {
     });
 
     ws.on('close', () => {
-
-        //Why status "inbound"? Because if the call is outbound, the status call back will be later updating
-        //the status call. Lets assume its inbound.
         insertCall({
             "sid": callSid,
-            "status": "inbound",
             "patientResponse": patientTextResponse 
         });
         keepAlive = false;

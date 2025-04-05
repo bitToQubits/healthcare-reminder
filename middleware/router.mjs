@@ -12,7 +12,7 @@ const router = new express.Router();
 
 export const mountRouter = () => {
     router.post('/v1/calls/outbound', makeCall);
-    router.post('/v1/calls/voiceMail', sendVoiceMail);
+    router.post('/v1/calls/voicemail', sendVoiceMail);
     router.post('/v1/calls/inbound', receiveCall);
     router.post('/v1/calls/status', handleStatusChange);
     router.get('/v1/calls', getAllVoiceCalls);

@@ -26,6 +26,18 @@ describe("POST /api/v1/calls/outbound", () => {
     });
 });
 
+describe("POST /api/v1/calls/status", () => {
+    it("Should NOT be able to change call status", async () => {
+        return request(app)
+            .post("/api/v1/calls/status")
+            .expect('Content-Type', /json/)
+            .expect(400)
+            .then((res) => {
+                expect(res.statusCode).toBe(400);
+            })
+    });
+});
+
 describe("POST /api/v1/calls/inbound", () => {
     it("Should receive valid TwiML for inbound calls", async () => {
         return request(app)
