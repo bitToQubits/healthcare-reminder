@@ -3,11 +3,17 @@ import { connectToDb } from "./Database.mjs";
 // All errors related to the data layer are non operational because they can lead to data loss or corruption.
 // Systems needs to fail in purpose.
 
+/**
+ * Insert call to the mongoDB database
+ * @category CallsModel
+ * @author jlbciriaco[at]gmail.com
+ * @param  {Object} callInfo    The object with the properties required on the technical requirements.
+ */
 export const insertCall = async (callInfo) => {
     let dbo = await connectToDb();
     let queryFilter = { sid: callInfo.sid };
     
-    const callWithTheSameSid = await dbo.collection("calls").findOne(queryFilter).then().catch(
+    const callWithTheSameSid = await dbo.collection("calls").findOne(queryFilter).catch(
         (err) => {
             err.isOperational = false;
             throw err;
@@ -23,6 +29,7 @@ export const insertCall = async (callInfo) => {
         });
     } else {
         let newCallValues = { $set: callInfo };
+        queryFilter = { ...queryFilter, status: {$not: {$eq: "Voicemail left"}} }
         dbo.collection("calls").updateOne(queryFilter, newCallValues, function(err, res) {
             if (err) {
                 err.isOperational = false;
@@ -33,10 +40,16 @@ export const insertCall = async (callInfo) => {
 
 }
 
+/**
+ * Get all saved calls from the mongoDB database
+ * @category CallsModel
+ * @author jlbciriaco[at]gmail.com
+ * @return  {Array} Array of objects with the calls info.
+ */
 export const getAllCalls = async () => {
     let dbo = await connectToDb();
     
-    // lets make an exception for this endpoint, is non critical.
+    // Non critical endpoint, so error is operational.
     let results = await dbo.collection("calls").find({}).toArray(function(err, result) {
         if (err) {
             err.isOperational = true;
