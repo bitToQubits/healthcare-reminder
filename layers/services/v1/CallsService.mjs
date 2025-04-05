@@ -3,6 +3,10 @@ import { ElevenLabsClient } from "elevenlabs";
 import { insertCall, getAllCalls } from '../../models/v1/CallsModel.mjs';
 import { getDomainName } from '../../../utils/dataConversions.mjs';
 import constants from '../../../utils/constants.mjs';
+import { streamToArrayBuffer } from '../../../utils/dataConversions.mjs';
+import { isJsonString } from '../../../utils/dataValidation.mjs';
+import { Readable } from 'stream';
+import { LiveTranscriptionEvents, createClient as createClientDeepgram } from "@deepgram/sdk";
 
 const twilio = new Twilio(constants.ACCOUNT_SID_TWILIO, constants.AUTH_TOKEN_TWILIO);
 
@@ -175,7 +179,6 @@ export const triggerVoiceCall = async (phoneNumber) => {
  * @return {Object}             New status of the call.
  */
 export const changeStatusVoiceCall = async (callInfo) => {
-    let transcribedPatientText = "";
     let response = {
         "status": callInfo.CallStatus,
         "sid": callInfo.CallSid
@@ -211,8 +214,6 @@ export const changeStatusVoiceCall = async (callInfo) => {
         }
     }
 
-    response['patientResponse'] = transcribedPatientText;
-
     await insertCall(response);
 
     console.log(response);
@@ -243,4 +244,127 @@ export const receiveVoiceCall = async () => {
  */
 export const getAllVoiceCalls = async () => {
  return await getAllCalls();
+}
+
+export const handleDualAudioStream = async(textID, ws) => {
+    const deepgramClient = createClientDeepgram(constants.AUTH_TOKEN_DEEPGRAM);
+    let keepAlive;
+    let patientTextResponse = "";
+    let callSid = "";
+
+    const setupDeepgram = () => {
+        const deepgram = deepgramClient.listen.live({
+            language: "en",
+            smart_format: true,
+            model: "nova",
+            encoding: "mulaw",
+            sample_rate: 8000,
+            channels: 1,
+        });
+    
+        if (keepAlive) clearInterval(keepAlive);
+            keepAlive = setInterval(() => {
+            deepgram.keepAlive();
+        }, 10 * 1000);
+    
+        deepgram.addListener(LiveTranscriptionEvents.Open, async () => {
+            deepgram.addListener(LiveTranscriptionEvents.Transcript, (data) => {
+                patientTextResponse += data.channel.alternatives[0].transcript;
+                console.log(patientTextResponse);
+            });
+        
+            deepgram.addListener(LiveTranscriptionEvents.Close, async () => {
+                clearInterval(keepAlive);
+                deepgram.requestClose();
+            });
+        
+            deepgram.addListener(LiveTranscriptionEvents.Error, async (error) => {
+                console.error(error);
+            });
+        });
+        
+        return deepgram;
+    };
+    
+    let hearPatientResponse = false;
+    let deepgramInstance = setupDeepgram();
+
+    ws.on('message', async (data) => {
+        if(!isJsonString(data)){
+            return;
+        }
+
+        const message = JSON.parse(data);
+        let stopMessageSending = false;
+        let response = "";
+        
+        if( message.event == "mark" ){
+            if( message.mark.name == "stoppedPlaying" ) {
+                hearPatientResponse = true;
+            }
+        }
+        
+        if(hearPatientResponse){
+            if( message.event == "media" && message.media ) {
+                if(message.media.track == "inbound"){
+                    const rawAudio = Buffer.from(message.media.payload, "base64");
+                    deepgramInstance.send(rawAudio);
+                }
+            }
+        }
+        
+        if(message.event == "start"){
+            callSid = message.start.callSid;
+            const streamSid = message.start.streamSid;
+
+            await generateVoiceTTS(textID)
+            .then((data) => {response = data})
+            .catch(() => {stopMessageSending = true});
+            
+            if(stopMessageSending) {
+                return;
+            }
+            
+            const readableStream = Readable.from(response);
+            const audioArrayBuffer = await streamToArrayBuffer(readableStream);
+    
+            ws.send(
+                JSON.stringify({
+                    streamSid,
+                    "event": 'media',
+                    "media": {
+                        payload: Buffer.from(audioArrayBuffer).toString('base64'),
+                    },
+                })
+            );
+
+            ws.send(
+                JSON.stringify({
+                    streamSid,
+                    "event": 'mark',
+                    "mark": {
+                        "name": "stoppedPlaying",
+                    },
+                })
+            );
+        }
+        
+    });
+
+    ws.on('close', () => {
+        insertCall({
+            "sid": callSid,
+            "patientResponse": patientTextResponse 
+        });
+        deepgramInstance.requestClose();
+        deepgramInstance.removeAllListeners();
+        deepgramInstance = null;
+    });
+
+    ws.on('error', () => {
+        deepgramInstance.requestClose();
+        deepgramInstance.removeAllListeners();
+        deepgramInstance = null;
+        ws.close();
+    });
 }
