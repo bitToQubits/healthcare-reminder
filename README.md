@@ -103,4 +103,4 @@ DB_URI = The MongoDB remote server URI
     to the system the patient text response.
     - After the call is ended the system would receive the webhook call from twilio updating the call
     status, finally revealing the status for the call (answered, no-anwer, busy, etc).
-- The system can also log all the calls performed by making a GET request to ``/calls/`` endpoint.
+- The system can also log to the console all the calls performed by making a GET request to ``/calls/`` endpoint.
