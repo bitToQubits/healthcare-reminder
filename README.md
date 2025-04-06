@@ -11,8 +11,21 @@ A voice-driven medication reminder system who combines TTS and STT technologies 
 ## Prerequisites
 - Make sure you have installed NodeJS version 23 or superior in your PC.
 - Configure MongoDB
-    - We will use MongoDB as our database solution.
-    - 
+    - We will use MongoDB Atlas as our database solution.
+    - Go to https://www.mongodb.com/cloud/atlas/register and sign up for a free account. Sign in if you
+    already have an account. 
+    - Fill all the questions, or directly skip personalization.
+    - MongoDB will ask you to create a cluster, select the Free option card.
+    - Click on Create Deployment.
+    - Create a username and password for connection security. Create the database user.
+    - Click on "Choose a connection method".
+    - Select the drivers option.
+    - Select as your driver NodeJS.
+    - Activate Show Password option in the connection string section. 
+    - Copy the connection string and write it somewhere; you will need it.
+    - In the right sidebar, search for Network Access, and click on "Add IP Address" button.
+    - Click on Allow access from anywhere, and click confirm.
+    - MongoDB is now configured ✅
 - Configure Deepgram
     - We will use Deepgram for STT, go to https://console.deepgram.com/ and create an account or sign in.
     - In the dashboard, search for the "Create API key" button, set a friendly name (for example "healthcare-stt"), and click in "Create key".
@@ -52,7 +65,7 @@ A voice-driven medication reminder system who combines TTS and STT technologies 
    Then unzip it in the folder of preference.
 3. Install dependencies with
    ``npm install``
-4. Create a .env file in the root directory of the system, where server.js is. Then write inside the .env file
+4. Create a .env file in the root directory of the system, where server.mjs is. Then write inside the .env file
 ```
 AUTH_TOKEN_11LABS = Your elevenlabs API key
 PHONE_NUMBER_TWILIO = A twilio phone number
@@ -64,7 +77,7 @@ PORT = The desired port you want to run the server. Write here "5000".
 DB_URI = The MongoDB remote server URI
 ```
 ## Usage
-- Open the server by opening up the terminal in VSCode in the system directory, and executing ``node server.js``
+- Open the server by opening up the terminal in VSCode in the system directory, and executing ``node server.mjs``
 - You can use POSTMAN to test the API.
     - Call ``POST https://your_ngrok_domain/api/v1/calls/outbound`` to trigger a call.
         - Here is the required body of the request.
@@ -76,7 +89,7 @@ DB_URI = The MongoDB remote server URI
     - Call ``GET https://your_ngrok_domain/api/v1/calls`` to list all call logs.
 - If you want to execute the integration tests, execute in the terminal the following ``npm test``
 ## Understanding call logs and patient interactions.
-- The system after a call to the ``calls/outbound/`` endpoint, will trigger a call on the recipient phone.
+- The system after a call to the ``/calls/outbound/`` endpoint, will trigger a call on the recipient phone.
 - The system will be outputting a call log to indicate that the call is queued
 - If declined/busy
     - The system would attempt to determine if the voice mail is available, if it is, system will leave
