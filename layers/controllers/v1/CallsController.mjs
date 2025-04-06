@@ -8,13 +8,6 @@ import {
 } from '../../services/v1/CallsService.mjs';
 import constants from '../../../utils/constants.mjs';
 
-/* 
-    TO-DO: 
-    error handling, 
-    streaming of elevenlabs, 
-    readme, 
-*/
-
 /**
  * Handle an outbound voice call using Twilio API.
  * @category CallsController
