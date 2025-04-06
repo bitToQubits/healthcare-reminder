@@ -48,7 +48,7 @@
 3. Install dependencies with
    ``npm install``
 4. Create a .env file in the root directory of the system, where server.js is. Then write inside the .env file
-``
+```
 AUTH_TOKEN_11LABS = Your elevenlabs API key
 PHONE_NUMBER_TWILIO = A twilio phone number
 ACCOUNT_SID_TWILIO = Account SID for twilio
@@ -57,5 +57,5 @@ SERVER_DOMAIN = Ngrok-generated domain
 AUTH_TOKEN_DEEPGRAM = Authentaticacion token for Deepgram
 PORT = The desired port you want to run the server. Write here "5000".
 DB_URI = The MongoDB remote server URI
-``
+```
 ## Usage
