@@ -12,20 +12,20 @@
     - We will use Deepgram for STT, go to https://console.deepgram.com/ and create an account or sign in.
     - In the dashboard, search for the "Create API key" button, set a friendly name (for example "healthcare-stt"), and click in "Create key".
     - Copy your Deepgram API key, write it somewhere; you will need it.
-    - Deepgram is now configured 
+    - Deepgram is now configured ✅
 - Configure ElevenLabs
     - We will use ElevenLabs for TTS, go ahead to https://elevenlabs.io/app/sign-in and sign in or create an account. Follow the onboarding.
     - In the left sidebar, click on your profile (must be at the bottom) and then click on API keys. 
     - Click on "Create API key", put the api key a name (can be any name, eg. healthcare reminder) and then click on "Create".
     - Copy your API key and write it somewhere; you will need it.
-    - ElevenLabs is now configured 
+    - ElevenLabs is now configured ✅
 - Configure Ngrok 
     - Open https://ngrok.com in your browser, and click on sign in or sign up if you dont have an account.
     - Go to https://dashboard.ngrok.com/ and search on the sidebar for Getting Started > Setup & Installation. Follow the tutorial for your specific OS. 
     - Sometimes ngrok is flagged incorrectly as a malware, but dont worry, it is not. Mark the program as safe if this happens to you.
     - Run the ngrok service by going to the downloaded folder, opening up the terminal in that directory and then executing `ngrok http 5000` where 5000 is the port you prefer. Use 5000.
     - Ngrok will start, showing a domain you will use to expose this healthcare system to the internet. Search in the terminal for Forwarding, at the right you will see the domain, write it somewhere; you will need it. The domain will look like "https://72e3-2001-1308-29ed-5e00-ed90-107c-2b21-f8e1.ngrok-free.app"
-    - Ngrok is now configured 
+    - Ngrok is now configured ✅
 - Configure Twilio
     - Go to https://console.twilio.com/ and log-in into your account. If you dont have one, create one, and follow the onboard tutorial Twilio gives you.
     - **Webhook configuration and getting active phone**
@@ -39,7 +39,7 @@
     - Then, search for your Account Sid, write it somewhere; you will need it.
     - Go to "API keys and credentials" on the sidebar.
     - Search for your Auth Token live credentials, write it somewhere; you will need it.
-    - Twilio is now configured 
+    - Twilio is now configured ✅
 ## Installation
 1. Clone the repository in the folder you want it to be with
    ``git clone https://github.com/bitToQubits/healthcare-reminder.git``
@@ -58,3 +58,4 @@ AUTH_TOKEN_DEEPGRAM = Authentaticacion token for Deepgram
 PORT = The desired port you want to run the server. Write here "5000".
 DB_URI = The MongoDB remote server URI
 ``
+## Usage
