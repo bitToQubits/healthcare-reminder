@@ -8,6 +8,7 @@ A voice-driven medication reminder system who combines TTS and STT technologies 
 - Get a report of all calls managed by the system
 - SMS sending
 - Integration tests.
+- Clean architecture 
 ## Prerequisites
 - Make sure you have installed NodeJS version 23 or superior in your PC.
 - Configure MongoDB
