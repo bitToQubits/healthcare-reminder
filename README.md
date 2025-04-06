@@ -10,6 +10,9 @@ A voice-driven medication reminder system who combines TTS and STT technologies 
 - Integration tests.
 ## Prerequisites
 - Make sure you have installed NodeJS version 23 or superior in your PC.
+- Configure MongoDB
+    - We will use MongoDB as our database solution.
+    - 
 - Configure Deepgram
     - We will use Deepgram for STT, go to https://console.deepgram.com/ and create an account or sign in.
     - In the dashboard, search for the "Create API key" button, set a friendly name (for example "healthcare-stt"), and click in "Create key".
@@ -64,11 +67,27 @@ DB_URI = The MongoDB remote server URI
 - Open the server by opening up the terminal in VSCode in the system directory, and executing ``node server.js``
 - You can use POSTMAN to test the API.
     - Call ``POST https://your_ngrok_domain/api/v1/calls/outbound`` to trigger a call.
-        - Here is the body of your request.
+        - Here is the required body of the request.
         ```
             {
                 "phone_number": "Your phone number"
             }
         ```
     - Call ``GET https://your_ngrok_domain/api/v1/calls`` to list all call logs.
-- If you want to execute the tests, execute in the terminal the following ``npm test``
+- If you want to execute the integration tests, execute in the terminal the following ``npm test``
+## Understanding call logs and patient interactions.
+- The system after a call to the ``calls/outbound/`` endpoint, will trigger a call on the recipient phone.
+- The system will be outputting a call log to indicate that the call is queued
+- If declined/busy
+    - The system would attempt to determine if the voice mail is available, if it is, system will leave
+    a message using elevenlabs audio, and then log the result of the call as "Voice mail left"
+        - If voice mail is not available, the system would attempt to send a sms using Twilio, and then
+        log the status of the call as "SMS sent"
+- If accepted
+    - The system with stablish a websocket connection after call is accepted to later stream 
+    elevenlabs audio, and after the initial audio is reproduced, will start listening for the patient 
+    response, who is later streamed to deepgram live transcription api to inmediatly start logging
+    to the system the patient text response.
+    - After the call is ended the system would receive the webhook call from twilio updating the call
+    status, finally revealing the status for the call (answered, no-anwer, busy, etc).
+- The system can also log all the calls performed by making a GET request to ``/calls/`` endpoint.
