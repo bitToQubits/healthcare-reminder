@@ -32,7 +32,7 @@ const sendSms = async (phoneNumber, text) => {
         }
     });
 
-    if (message?.body?.sid) {
+    if (message.sid) {
         response = {
             "status": true,
             "message": "SMS sent."
@@ -40,8 +40,8 @@ const sendSms = async (phoneNumber, text) => {
     } else {
         response = {
             "status": false,
-            "message": message?.body?.errorMessage,
-            "errorCode": message?.body?.errorCode,
+            "message": message.errorMessage,
+            "errorCode": message.errorCode,
         }
     }
 
